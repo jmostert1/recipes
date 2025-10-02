@@ -9,8 +9,8 @@ let lastSearchResults = null;
 let lastSearchTerm = '';
 
 async function init() {
-  await loadPartial('header-container', '/partials/header.html');
-  await loadPartial('footer-container', '/partials/footer.html');
+  await loadPartial('header-container', './partials/header.html');
+  await loadPartial('footer-container', './partials/footer.html');
   setupEventListeners();
   setupNavigation();
 }
