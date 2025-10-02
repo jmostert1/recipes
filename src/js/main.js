@@ -307,9 +307,27 @@ function backToResults() {
   }
 }
 
+function isEnglishText(text) {
+  // Check if text contains mostly English characters
+  // Allow letters, numbers, common punctuation, and some accented characters
+  const englishPattern = /^[\x00-\x7F\u00C0-\u00FF\s.,!?;:()\-'"]+$/;
+  return englishPattern.test(text);
+}
+
 function renderInstructions(recipe) {
   if (recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0) {
     const steps = recipe.analyzedInstructions[0].steps;
+    
+    // Check if the first step is in English
+    if (steps.length > 0 && !isEnglishText(steps[0].step)) {
+      return `
+        <div class="no-instructions">
+          <p>⚠️ Instructions are not available in English for this recipe.</p>
+          <p>Please try searching for a similar recipe or check the source website.</p>
+        </div>
+      `;
+    }
+    
     return `
       <ol>
         ${steps.map(step => `
@@ -318,9 +336,22 @@ function renderInstructions(recipe) {
       </ol>
     `;
   } else if (recipe.instructions) {
+    // Check if instructions are in English
+    if (!isEnglishText(recipe.instructions)) {
+      return `
+        <div class="no-instructions">
+          <p>⚠️ Instructions are not available in English for this recipe.</p>
+          <p>Please try searching for a similar recipe or check the source website.</p>
+        </div>
+      `;
+    }
     return `<p>${recipe.instructions}</p>`;
   } else {
-    return `<p>No instructions available for this recipe.</p>`;
+    return `
+      <div class="no-instructions">
+        <p>No instructions available for this recipe.</p>
+      </div>
+    `;
   }
 }
 
