@@ -9,11 +9,30 @@
 
 <body>
     <div class="page-wrapper">
-        <div id="header">
+        <div id="header-container"></div>
+        
+        <main class="container" id="main-content">
+            <!-- Search Section -->
+            <section class="search-section">
+                <h1>Find Your Perfect Recipe</h1>
+                <div class="search-bar">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Enter ingredients (e.g., chicken, tomato, cheese)..." 
+                    />
+                    <button id="searchBtn" class="btn btn-primary">Search</button>
+                    <button id="surpriseBtn" class="btn btn-secondary">Surprise Me!</button>
+                </div>
+            </section>
 
-        </div>
-        <div class="container" id="main-content"></div>
-        <div id="footer"></div>
+            <!-- Results Section -->
+            <section class="results-section">
+                <div id="recipes-list"></div>
+            </section>
+        </main>
+        
+        <div id="footer-container"></div>
     </div>
     <script type="module" src="js/main.js"></script>
 </body>
