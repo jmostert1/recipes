@@ -2,7 +2,7 @@
 //I think this file is getting a bit large, maybe split into modules later?
 
 
-import { getRecipesByIngredients, getRecipeDetails, downloadAsJson } from './api.js';
+import { getRecipesByIngredients, getRecipeDetails } from './api.js';
 import { loadPartial, showError, showLoading, hideLoading, removeHyperlinks } from './utils.js';
 
 // Cache for last search results

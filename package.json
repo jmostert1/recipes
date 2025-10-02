@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +16,8 @@
   "type": "commonjs",
   "dependencies": {
     "vite": "^7.1.7"
+  },
+  "devDependencies": {
+    "eslint": "^9.36.0"
   }
 }
