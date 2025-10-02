@@ -1,4 +1,5 @@
 ﻿//Beef of the site, handles all user interactions, rendering, etc.
+//I think this file is getting a bit large, maybe split into modules later?
 
 
 import { getRecipesByIngredients, getRecipeDetails, downloadAsJson } from './api.js';
@@ -275,7 +276,7 @@ function backToResults() {
   
   if (!mainContent) return;
   
-  // Restore the search page
+  // Restore the search page to what you searched for last, makes life easier
   mainContent.innerHTML = `
     <!-- Search Section -->
     <section class="search-section">
@@ -309,7 +310,6 @@ function backToResults() {
 
 function isEnglishText(text) {
   // Check if text contains mostly English characters
-  // Allow letters, numbers, common punctuation, and some accented characters
   const englishPattern = /^[\x00-\x7F\u00C0-\u00FF\s.,!?;:()\-'"]+$/;
   return englishPattern.test(text);
 }
@@ -318,7 +318,7 @@ function renderInstructions(recipe) {
   if (recipe.analyzedInstructions && recipe.analyzedInstructions.length > 0) {
     const steps = recipe.analyzedInstructions[0].steps;
     
-    // Check if the first step is in English
+    // Check if the first step are in English, some recipes are not in English and that sucks.
     if (steps.length > 0 && !isEnglishText(steps[0].step)) {
       return `
         <div class="no-instructions">
