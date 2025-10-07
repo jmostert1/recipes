@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recipes App</title>
     <link rel="stylesheet" href="/css/styles.css" />
 </head>
@@ -16,19 +17,30 @@
             <section class="search-section">
                 <h1>Find Your Perfect Recipe</h1>
                 <div class="search-bar">
+                    <label for="searchInput" class="visually-hidden">Search for recipes by ingredients</label>
                     <input 
                         type="text" 
                         id="searchInput" 
                         placeholder="Enter ingredients (e.g., chicken, tomato, cheese)..." 
+                        aria-label="Enter ingredients to search for recipes"
                     />
-                    <button id="searchBtn" class="btn btn-primary">Search</button>
-                    <button id="surpriseBtn" class="btn btn-secondary">Surprise Me!</button>
+                    <button id="searchBtn" class="btn btn-primary" aria-label="Search for recipes">Search</button>
+                    <button id="surpriseBtn" class="btn btn-secondary" aria-label="Get a random recipe suggestion">Surprise Me!</button>
+                </div>
+            </section>
+
+            <!-- Joke Section -->
+            <section class="joke-section">
+                <div class="joke-container">
+                    <h3>😄 Cheer Up!</h3>
+                    <p id="jokeText" class="joke-text" role="status" aria-live="polite">Loading joke...</p>
+                    <button id="newJokeButton" class="new-joke-btn" aria-label="Get another joke">Get Another Joke</button>
                 </div>
             </section>
 
             <!-- Results Section -->
             <section class="results-section">
-                <div id="recipes-list"></div>
+                <div id="recipes-list" role="region" aria-label="Recipe search results"></div>
             </section>
         </main>
         

@@ -3,7 +3,8 @@
 
 
 import { getRecipesByIngredients, getRecipeDetails } from './api.js';
-import { loadPartial, showError, showLoading, hideLoading, removeHyperlinks } from './utils.js';
+import { loadPartial, showError, showLoading, hideLoading, removeHyperlinks, getMealPlan, addMealToPlan, removeMealFromPlan, getRecipeIdsFromMealPlan, aggregateIngredients } from './utils.js';
+import { getFoodJoke, formatJoke } from './jokes.js';
 
 // Cache for last search results
 let lastSearchResults = null;
@@ -14,11 +15,13 @@ async function init() {
   await loadPartial('footer-container', './partials/footer.html');
   setupEventListeners();
   setupNavigation();
+  loadJoke(); // Load initial joke
 }
 
 function setupEventListeners() {
   const searchBtn = document.getElementById('searchBtn');
   const surpriseBtn = document.getElementById('surpriseBtn');
+  const newJokeButton = document.getElementById('newJokeButton');
   
   if (searchBtn) {
     searchBtn.addEventListener('click', handleSearchClick);
@@ -27,11 +30,16 @@ function setupEventListeners() {
   if (surpriseBtn) {
     surpriseBtn.addEventListener('click', handleSurpriseClick);
   }
+  
+  if (newJokeButton) {
+    newJokeButton.addEventListener('click', loadJoke);
+  }
 }
 
 function setupNavigation() {
   const homeLink = document.getElementById('homeLink');
   const favoritesLink = document.getElementById('favoritesLink');
+  const mealPlannerLink = document.getElementById('mealPlannerLink');
   
   if (homeLink) {
     homeLink.addEventListener('click', (e) => {
@@ -44,6 +52,13 @@ function setupNavigation() {
     favoritesLink.addEventListener('click', (e) => {
       e.preventDefault();
       renderFavoritesPage();
+    });
+  }
+  
+  if (mealPlannerLink) {
+    mealPlannerLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      renderMealPlannerPage();
     });
   }
 }
@@ -399,6 +414,277 @@ function renderFavoritesPage() {
   }
 }
 
+// Meal Planner Page
+async function renderMealPlannerPage() {
+  const mainContent = document.getElementById('main-content');
+  
+  if (!mainContent) return;
+  
+  const mealPlan = getMealPlan();
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const mealTimes = [
+    { key: 'breakfast', label: 'Breakfast' },
+    { key: 'lunch', label: 'Lunch' },
+    { key: 'dinner', label: 'Dinner' },
+    { key: 'snacks', label: 'Snacks' }
+  ];
+  
+  mainContent.innerHTML = `
+    <div class="meal-planner-page">
+      <h1>📅 Weekly Meal Planner</h1>
+      <p class="planner-subtitle">Plan your meals using your favorite recipes</p>
+      
+      <div class="meal-planner-table">
+        <table>
+          <thead>
+            <tr>
+              <th class="meal-header">Meal</th>
+              ${days.map(day => `<th class="day-header">${day}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${mealTimes.map(mealTime => `
+              <tr>
+                <td class="meal-label">${mealTime.label}</td>
+                ${days.map(day => {
+                  const dayKey = day.toLowerCase();
+                  const meal = mealPlan[dayKey][mealTime.key];
+                  return `
+                    <td class="meal-cell" data-day="${dayKey}" data-meal="${mealTime.key}">
+                      ${meal ? `
+                        <div class="meal-item">
+                          <div class="meal-info">
+                            <strong>${meal.title}</strong>
+                            <span>${meal.readyInMinutes || 0} min • ${meal.servings || 1} servings</span>
+                          </div>
+                          <button class="remove-meal-btn" onclick="removeMeal('${dayKey}', '${mealTime.key}')">×</button>
+                        </div>
+                      ` : `
+                        <button class="add-meal-btn" onclick="openMealSelector('${dayKey}', '${mealTime.key}')">+ Add Meal</button>
+                      `}
+                    </td>
+                  `;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Mobile view (cards) -->
+      <div class="meal-planner-mobile">
+        ${days.map(day => {
+          const dayKey = day.toLowerCase();
+          return `
+            <div class="day-card">
+              <h2>${day}</h2>
+              ${mealTimes.map(mealTime => {
+                const meal = mealPlan[dayKey][mealTime.key];
+                return `
+                  <div class="mobile-meal-row">
+                    <div class="mobile-meal-label">${mealTime.label}</div>
+                    <div class="mobile-meal-content">
+                      ${meal ? `
+                        <div class="meal-item">
+                          <div class="meal-info">
+                            <strong>${meal.title}</strong>
+                            <span>${meal.readyInMinutes || 0} min • ${meal.servings || 1} servings</span>
+                          </div>
+                          <button class="remove-meal-btn" onclick="removeMeal('${dayKey}', '${mealTime.key}')">×</button>
+                        </div>
+                      ` : `
+                        <button class="add-meal-btn" onclick="openMealSelector('${dayKey}', '${mealTime.key}')">+ Add Meal</button>
+                      `}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }).join('')}
+      </div>
+      
+      <!-- Shopping List Section -->
+      <div class="shopping-list-section">
+        <div class="shopping-list-header">
+          <h2>🛒 Shopping List for This Week</h2>
+          <button id="generateShoppingList" class="btn btn-primary">Generate Shopping List</button>
+        </div>
+        <div id="shoppingListContent" class="shopping-list-content">
+          <p class="shopping-list-placeholder">Click "Generate Shopping List" to see all ingredients you need for your planned meals.</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal for selecting recipes -->
+    <div id="mealSelectorModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Select a Recipe</h2>
+          <button class="modal-close" onclick="closeMealSelector()">×</button>
+        </div>
+        <div class="modal-body" id="modalRecipeList">
+          <!-- Recipe list will be populated here -->
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add event listener for generate shopping list button
+  const generateBtn = document.getElementById('generateShoppingList');
+  if (generateBtn) {
+    generateBtn.addEventListener('click', () => generateShoppingList());
+  }
+}
+
+// Generate Shopping List from Meal Plan
+async function generateShoppingList() {
+  const shoppingListContent = document.getElementById('shoppingListContent');
+  const generateBtn = document.getElementById('generateShoppingList');
+  
+  if (!shoppingListContent) return;
+  
+  try {
+    // Show loading state
+    generateBtn.textContent = 'Generating...';
+    generateBtn.disabled = true;
+    shoppingListContent.innerHTML = '<p class="loading-message">Loading recipe details...</p>';
+    
+    // Get all recipe IDs from meal plan
+    const recipeIds = getRecipeIdsFromMealPlan();
+    
+    if (recipeIds.length === 0) {
+      shoppingListContent.innerHTML = `
+        <p class="shopping-list-placeholder">No meals in your plan yet. Add some recipes to generate a shopping list!</p>
+      `;
+      generateBtn.textContent = 'Generate Shopping List';
+      generateBtn.disabled = false;
+      return;
+    }
+    
+    // Fetch full recipe details for each recipe
+    const recipePromises = recipeIds.map(id => getRecipeDetails(id));
+    const recipes = await Promise.all(recipePromises);
+    
+    // Aggregate ingredients
+    const groupedIngredients = aggregateIngredients(recipes);
+    
+    // Generate HTML for shopping list
+    if (Object.keys(groupedIngredients).length === 0) {
+      shoppingListContent.innerHTML = `
+        <p class="shopping-list-placeholder">No ingredients found in your recipes.</p>
+      `;
+    } else {
+      let html = '<div class="shopping-list-grid">';
+      
+      // Sort categories alphabetically
+      const sortedCategories = Object.keys(groupedIngredients).sort();
+      
+      sortedCategories.forEach(category => {
+        const ingredients = groupedIngredients[category];
+        html += `
+          <div class="shopping-category">
+            <h3 class="category-title">${category}</h3>
+            <ul class="ingredient-list">
+              ${ingredients.map((ingredient, index) => {
+                const displayAmount = ingredient.amount > 0 
+                  ? `${ingredient.amount.toFixed(1)} ${ingredient.unit}`.trim()
+                  : '';
+                return `
+                  <li>
+                    <label class="ingredient-item">
+                      <input type="checkbox" class="ingredient-checkbox" />
+                      <span class="ingredient-text">
+                        <strong>${ingredient.name}</strong>
+                        ${displayAmount ? `<span class="ingredient-amount">(${displayAmount})</span>` : ''}
+                      </span>
+                    </label>
+                  </li>
+                `;
+              }).join('')}
+            </ul>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      
+      shoppingListContent.innerHTML = html;
+    }
+    
+    generateBtn.textContent = 'Refresh Shopping List';
+    generateBtn.disabled = false;
+    
+  } catch (error) {
+    console.error('Error generating shopping list:', error);
+    shoppingListContent.innerHTML = `
+      <p class="error-message">Error generating shopping list. Please try again.</p>
+    `;
+    generateBtn.textContent = 'Generate Shopping List';
+    generateBtn.disabled = false;
+  }
+}
+
+// Make removeMeal function global
+window.removeMeal = function(day, mealTime) {
+  removeMealFromPlan(day, mealTime);
+  renderMealPlannerPage();
+};
+
+// Make openMealSelector function global
+window.openMealSelector = function(day, mealTime) {
+  const modal = document.getElementById('mealSelectorModal');
+  const modalBody = document.getElementById('modalRecipeList');
+  const favorites = getFavorites();
+  
+  if (favorites.length === 0) {
+    modalBody.innerHTML = `
+      <div class="empty-favorites">
+        <p>You don't have any favorite recipes yet!</p>
+        <p>Go to the home page and add some recipes to favorites first.</p>
+      </div>
+    `;
+  } else {
+    modalBody.innerHTML = `
+      <div class="recipe-select-grid">
+        ${favorites.map(recipe => `
+          <div class="recipe-select-card" onclick="selectRecipeForMeal('${day}', '${mealTime}', ${recipe.id})">
+            <img src="${recipe.image}" alt="${recipe.title}" />
+            <div class="recipe-select-info">
+              <strong>${recipe.title}</strong>
+              <span>${recipe.readyInMinutes || 0} min • ${recipe.servings || 1} servings</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  modal.style.display = 'flex';
+  
+  // Store current selection in modal
+  modal.dataset.day = day;
+  modal.dataset.mealTime = mealTime;
+};
+
+// Make closeMealSelector function global
+window.closeMealSelector = function() {
+  const modal = document.getElementById('mealSelectorModal');
+  modal.style.display = 'none';
+};
+
+// Make selectRecipeForMeal function global
+window.selectRecipeForMeal = function(day, mealTime, recipeId) {
+  const favorites = getFavorites();
+  const recipe = favorites.find(r => r.id === recipeId);
+  
+  if (recipe) {
+    addMealToPlan(day, mealTime, recipe);
+    closeMealSelector();
+    renderMealPlannerPage();
+  }
+};
+
 // Favorites Management Functions
 function getFavorites() {
   const favorites = localStorage.getItem('recipesFavorites');
@@ -468,5 +754,23 @@ window.removeFavorite = function(recipeId) {
   renderFavoritesPage(); 
   showError('Removed from favorites!');
 };
+
+// Joke functionality
+async function loadJoke() {
+  const jokeText = document.getElementById('jokeText');
+  
+  if (!jokeText) {
+    return; // Element not found, skip
+  }
+  
+  try {
+    jokeText.textContent = 'Loading joke...';
+    const jokeData = await getFoodJoke();
+    jokeText.textContent = formatJoke(jokeData);
+  } catch (error) {
+    jokeText.textContent = '😅 Oops! Could not load a joke right now.';
+    console.error('Error loading joke:', error);
+  }
+}
 
 document.addEventListener('DOMContentLoaded', init);
